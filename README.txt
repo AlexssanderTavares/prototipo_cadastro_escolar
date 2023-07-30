@@ -7,4 +7,4 @@ inseridos numa lista com buscas precisas utilizando validação de entrada de da
 ***Isto é um protótipo de iniciante na programação***
 
 
-Autor: https://github.com/AlexssanderTavaresDev
+Autor: https://github.com/AlexssanderTavares
