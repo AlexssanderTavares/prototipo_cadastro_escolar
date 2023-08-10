@@ -1,7 +1,15 @@
 require 'cpf_cnpj'
+require 'mysql2'
 require_relative "classes.rb"
 
 module CAD
+    DB = Mysql2::Client.new(
+        :host => "localhost",
+        :username => "root",
+        :password => "7296",
+        :database => "cadastro_escolar"
+    )
+
     def rgConvert(x)
         if x.size == 9
             array = x.split(//)
@@ -16,9 +24,10 @@ module CAD
     end
     #cadastro alunos e professores
     def cadastrar_professor
-        _professor = Professor.new
-        print "Digite o nome completo do Professor: "
+        print "Digite o nome do Professor: "
         nome_professor = gets.chomp.to_s
+        print "Digite o sobrenome do Professor: "
+        sn_professor = gets.chomp.to_s
         print "Digite a idade do Professor: "
         idade_professor = gets.chomp.to_i
         print "Digite o CPF do Professor: "
@@ -27,16 +36,14 @@ module CAD
         cpfProfessor = cpf2.formatted
         print "Digite o RG do Professor: "
         rg_professor = gets.chomp.to_s
+        rgProfessor = rgConvert(rg_professor)
         print "Qual a disciplina do professor: "
         disciplina = gets.chop.to_s
-        @lista_professores[@count2] = {numRegistro: @count2, nomeProfessor: nome_professor, idadeProfessor: idade_professor, cpfProfessor: cpfProfessor, rgProfessor: rgConvert(rg_professor), disciplina: disciplina}
-        _professor.numRegistro = @lista_professores[@count2][:numRegistro]
-        _professor.nomeProfessor = @lista_professores[@count2][:nomeProfessor]
-        _professor.idadeProfessor = @lista_professores[@count2][:idadeProfessor]
-        _professor.cpfProfessor = @lista_professores[@count2][:cpfProfessor]
-        _professor.rgProfessor = @lista_professores[@count2][:rgProfessor]
-        _professor.disciplina = @lista_professores[@count2][:disciplina]
-        @count2 +=1
+        professor = Professor.new(nome_professor, sn_professor, idade_professor, cpfProfessor, rgProfessor)
+        professor.discipline = disciplina
+        puts "Novo Registro: |#{professor.name}|#{professor.surname}|#{professor.age}|#{professor.cpf}|#{professor.rg}|#{professor.discipline}|\n"
+
+        register = DB.query("insert into professores(name_professor, surname_professor, age_professor, cpf_professor, rg_professor, discipline) values('#{professor.name}','#{professor.surname}',#{professor.age},'#{professor.cpf}','#{professor.rg}','#{professor.discipline}')")
     end
     
     def cadastrar_aluno
@@ -265,10 +272,12 @@ module CAD
         end
     end
     def menu
+=begin
         @lista_alunos = []
         @lista_professores = []
         @count1 = 0
         @count2 = 0
+=end
         loop do
             puts "Bem vindo ao CAD de Alunos e Professores, escolha uma das seguintes opções:\n\n"
             puts "1. Cadastrar Aluno"
