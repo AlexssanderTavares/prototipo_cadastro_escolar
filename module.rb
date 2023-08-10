@@ -1,27 +1,16 @@
 require 'cpf_cnpj'
 require 'mysql2'
 require_relative "classes.rb"
+require_relative "conversor.rb"
 
 module CAD
     DB = Mysql2::Client.new(
         :host => "localhost",
-        :username => "root",
-        :password => "7296",
+        :username => "",
+        :password => "",
         :database => "cadastro_escolar"
     )
-
-    def rgConvert(x)
-        if x.size == 9
-            array = x.split(//)
-            arr1 = array[0] + array[1]
-            arr2 = array[2] + array[3] + array[4]
-            arr3 = array[5] + array[6] + array[7]
-            arr4 = array[8]
-            rgFormat = arr1 + "." + arr2 + "." + arr3 + "-" + arr4
-        else
-            puts "Numero invalido"
-        end
-    end
+    CONVERSOR = RegNumConversor.new
     #cadastro alunos e professores
     def cadastrar_professor
         print "Digite o nome do Professor: "
@@ -36,20 +25,21 @@ module CAD
         cpfProfessor = cpf2.formatted
         print "Digite o RG do Professor: "
         rg_professor = gets.chomp.to_s
-        rgProfessor = rgConvert(rg_professor)
+        rgProfessor = CONVERSOR.to_rg(rg_professor)
         print "Qual a disciplina do professor: "
         disciplina = gets.chop.to_s
         professor = Professor.new(nome_professor, sn_professor, idade_professor, cpfProfessor, rgProfessor)
         professor.discipline = disciplina
-        puts "Novo Registro: |#{professor.name}|#{professor.surname}|#{professor.age}|#{professor.cpf}|#{professor.rg}|#{professor.discipline}|\n"
+        puts "Novo Registro de Professor! \n|Nome: #{professor.name}|Sobrenome: #{professor.surname}|Idade: #{professor.age}|CPF: #{professor.cpf}|RG: #{professor.rg}|Disciplina: #{professor.discipline}|\n"
 
         register = DB.query("insert into professores(name_professor, surname_professor, age_professor, cpf_professor, rg_professor, discipline) values('#{professor.name}','#{professor.surname}',#{professor.age},'#{professor.cpf}','#{professor.rg}','#{professor.discipline}')")
     end
     
     def cadastrar_aluno
-        _aluno = Aluno.new
-        print "Digite o nome completo do Aluno: "
+        print "Digite o nome do Aluno: "
         nome_aluno = gets.chomp.to_s
+        print "Digite o sobrenome do Aluno: "
+        sn_aluno = gets.chomp.to_s
         print "Digite a idade do Aluno: "
         idade_aluno = gets.chomp.to_i
         print "Digite o CPF do Aluno: "
@@ -58,13 +48,11 @@ module CAD
         cpfAluno = cpf1.formatted
         print "Digite o RG do Aluno: "
         rg_aluno = gets.chomp.to_s
-        @lista_alunos[@count1] = {numRegistro: @count1, nomeAluno: nome_aluno, idadeAluno: idade_aluno, cpfAluno: cpfAluno, rgAluno: rgConvert(rg_aluno)}
-        _aluno.numRegistro = @lista_alunos[@count1][:numRegistro]
-        _aluno.nomeAluno = @lista_alunos[@count1][:nomeAluno]
-        _aluno.idadeAluno = @lista_alunos[@count1][:idadeAluno]
-        _aluno.cpfAluno = @lista_alunos[@count1][:cpfAluno]
-        _aluno.rgAluno = @lista_alunos[@count1][:rgAluno]
-        @count1 +=1
+        rgAluno = CONVERSOR.to_rg(rg_aluno)
+        aluno = Aluno.new(nome_aluno, sn_aluno, idade_aluno, cpfAluno, rgAluno)
+        puts "Novo Registro de Aluno! \n|Nome: #{aluno.name}|Sobrenome: #{aluno.surname}|Idade: #{aluno.age}|CPF: #{aluno.cpf}|RG: #{aluno.rg}|"
+
+        register = DB.query("insert into alunos(name_aluno, surname_aluno, age_aluno, cpf_aluno, rg_aluno) values('#{aluno.name}','#{aluno.surname}',#{aluno.age},'#{aluno.cpf}','#{aluno.rg}')")
     end
     #busca alunos e professores atraves de entrada de dados
     def busca_aluno
@@ -81,29 +69,23 @@ module CAD
             when 1
                 print "Digite o nome do Aluno: "
                 name = gets.chomp.to_s
-                @lista_alunos.each do |names|
-                    if names[:nomeAluno].downcase.include?(name.downcase)
-                        puts "#{names[:numRegistro]} - #{names[:nomeAluno]} - #{names[:idadeAluno]} - #{names[:cpfAluno]} - #{names[:rgAluno]}"
-                    end
+                rws = DB.query("select * from alunos where name_aluno = '#{name.capitalize}'").each do |rows|
+                    puts "|ID: #{rows["id_aluno"]}|NOME: #{rows["name_aluno"]}|SOBRENOME:#{rows["surname_aluno"]}|IDADE:#{rows["age_aluno"]}|CPF:#{rows["cpf_aluno"]}|RG:#{rows["rg_aluno"]}|"
                 end
             when 2 
                 print "Digite o CPF do Aluno: "
                 codAluno = gets.chomp.to_s
                 formatingCPF = CPF.new(codAluno)
                 cpfs = formatingCPF.formatted
-                @lista_alunos.each do |cpf|
-                    if cpf[:cpfAluno].include?(cpfs)
-                        puts "#{cpf[:numRegistro]} - #{cpf[:nomeAluno]} - #{cpf[:idadeAluno]} - #{cpf[:cpfAluno]} - #{cpf[:rgAluno]}"
-                    end
+                rws = DB.query("select * from alunos where cpf_aluno = '#{cpfs}'").each do |rows|
+                    puts "|ID: #{rows["id_aluno"]}|NOME: #{rows["name_aluno"]}|SOBRENOME:#{rows["surname_aluno"]}|IDADE:#{rows["age_aluno"]}|CPF:#{rows["cpf_aluno"]}|RG:#{rows["rg_aluno"]}|"
                 end
             when 3
                 print "Digite o RG do Aluno: "
                 src_rgs = gets.chomp.to_s
-                rgs = rgConvert(src_rgs)
-                @lista_alunos.each do |rg|
-                    if rg[:rgAluno].include?(rgs)
-                        puts "#{rg[:numRegistro]} - #{rg[:nomeAluno]} - #{rg[:idadeAluno]} - #{rg[:cpfAluno]} - #{rg[:rgAluno]}"
-                    end
+                rgs = CONVERSOR.to_rg(src_rgs)
+                rws = DB.query("select * from alunos where rg_aluno = '#{rgs}'").each do |rows|
+                    puts "|ID: #{rows["id_aluno"]}|NOME: #{rows["name_aluno"]}|SOBRENOME:#{rows["surname_aluno"]}|IDADE:#{rows["age_aluno"]}|CPF:#{rows["cpf_aluno"]}|RG:#{rows["rg_aluno"]}|"
                 end
             when 4
                 break
@@ -125,28 +107,23 @@ module CAD
             when 1
                 print "Digite o nome do Professor: "
                 name = gets.chomp.to_s
-                @lista_professores.each do |names|
-                    if names[:nomeProfessor].downcase.include?(name.downcase)
-                        puts "#{names[:numRegistro]} - #{names[:nomeProfessor]} - #{names[:idadeProfessor]} - #{names[:cpfProfessor]} - #{names[:rgProfessor]} - #{names[:disciplina]}"
-                    end
+                rws = DB.query("select * from alunos where name_professor = '#{name.capitalize}'").each do |rows|
+                    puts "|ID: #{rows["id_professor"]}|NOME: #{rows["name_professor"]}|SOBRENOME:#{rows["surname_professor"]}|IDADE:#{rows["age_professor"]}|CPF:#{rows["cpf_professor"]}|RG:#{rows["rg_professor"]}|DISCIPLINA: #{rows["discipline"]}|"
                 end
             when 2 
                 print "Digite o CPF do Professor: "
                 codProfessor = gets.chomp.to_s
                 formatingCPF = CPF.new(codProfessor)
-                cpf = formatingCPF.formatted
-                @lista_professores.each do |cpfs|
-                    if cpfs[:cpfProfessor].include?(cpf)
-                        puts "#{cpfs[:numRegistro]} - #{cpfs[:nomeProfessor]} - #{cpfs[:idadeProfessor]} - #{cpfs[:cpfProfessor]} - #{cpfs[:rgProfessor]} - #{cpfs[:disciplina]}"
-                    end
+                cpfs = formatingCPF.formatted
+                rws = DB.query("select * from alunos where cpf_professor = '#{cpfs}'").each do |rows|
+                    puts "|ID: #{rows["id_professor"]}|NOME: #{rows["name_professor"]}|SOBRENOME:#{rows["surname_professor"]}|IDADE:#{rows["age_professor"]}|CPF:#{rows["cpf_professor"]}|RG:#{rows["rg_professor"]}|DISCIPLINA: #{rows["discipline"]}|"
                 end
             when 3
                 print "Digite o RG do Professor: "
-                rgs = gets.chomp.to_s
-                @lista_Professores.each do |rg|
-                    if rg[:rgProfessor].include?(rgs)
-                        puts "#{rg[:numRegistro]} - #{rg[:nomeProfessor]} - #{rg[:idadeProfessor]} - #{rg[:cpfProfessor]} - #{rg[:rgProfessor]} - #{rg[:disciplina]}"
-                    end
+                src_rgs = gets.chomp.to_s
+                rgs = CONVERSOR.to_rg(src_rgs)
+                rws = DB.query("select * from alunos where rg_professor = '#{rgs}'").each do |rows|
+                    puts "|ID: #{rows["id_professor"]}|NOME: #{rows["name_professor"]}|SOBRENOME:#{rows["surname_professor"]}|IDADE:#{rows["age_professor"]}|CPF:#{rows["cpf_professor"]}|RG:#{rows["rg_professor"]}|DISCIPLINA: #{rows["discipline"]}|"
                 end
             when 4
                 break
@@ -155,16 +132,16 @@ module CAD
     end
     #mostra listas de alunos e professores cadastrados
     def mostrar_alunos
-        puts "Lista de alunos: \n"
-        @lista_alunos.each do |profiles|
-            puts "|Número Registro: #{profiles[:numRegistro]} |Nome: #{profiles[:nomeAluno]} |Idade: #{profiles[:idadeAluno]} |CPF: #{profiles[:cpfAluno]} |RG: #{profiles[:rgAluno]} |"
+        puts "Lista de alunos: \n\n"
+        rws = DB.query("select * from alunos").each do |rows|
+            puts "|ID: #{rows["id_aluno"]}|NOME: #{rows["name_aluno"]}|SOBRENOME: #{rows["surname_aluno"]}|IDADE: #{rows["age_aluno"]}|CPF: #{rows["cpf_aluno"]}|RG: #{rows["rg_aluno"]}|"
         end
     end
 
     def mostrar_professores
-        puts "Lista de professores: \n"
-        @lista_professores.each do |profiles|
-        puts "|Número Registro: #{profiles[:numRegistro]} |Nome: #{profiles[:nomeProfessor]} |Idade: #{profiles[:idadeProfessor]} |CPF: #{profiles[:cpfProfessor]} |RG: #{profiles[:rgProfessor]} |Disciplina: #{profiles[:disciplina]}"
+        puts "Lista de professores: \n\n"
+        rws = DB.query("select * from professores").each do |rows|
+            puts "|ID: #{rows["id_professor"]}|NOME: #{rows["name_professor"]}|SOBRENOME: #{rows["surname_professor"]}|IDADE: #{rows["age_professor"]}|CPF: #{rows["cpf_professor"]}|RG: #{rows["rg_professor"]}|DISCIPLINA: #{rows["discipline"]}|"
         end
     end
     #editar contato
@@ -180,91 +157,92 @@ module CAD
             when 1
                 mostrar_alunos
                 print "Escolha um contato da lista através do seu número de registro: "
-                option2 = gets.chomp.to_i
-                @lista_alunos.each do |registro|
-                    if registro[:numRegistro] == option2
-                        puts "Qual campo deseja editar?\n
-                        1. Nome
-                        2. Idade
-                        3. CPF
-                        4. RG
-                        5. Cancelar \n"
-                        option3 = gets.chomp.to_i
-                        case option3
-                        when 1
-                            print "Para editar o nome, basta digitá-lo e pressionar Enter (caso não queira alterar o nome, basta pressionar Enter): "
-                            novo_nome = registro[:nomeAluno]
-                            registro[:nomeAluno] = gets.chomp.to_s
-                            registro[:nomeAluno] = registro[:nomeAluno].empty? ? novo_nome : registro[:nomeAluno]
-                        when 2
-                            print "Para editar a idade, basta digitá-lo e pressionar Enter (caso não queira alterar a idade, basta pressionar Enter): "
-                            nova_idade = registro[:idadeAluno]
-                            registro[:idadeAluno] = gets.chomp.to_s
-                            registro[:idadeAluno] = registro[:idadeAluno].empty? ? nova_idade : registro[:idadeAluno]
-                        when 3 
-                            print "Para editar o CPF, basta digitá-lo e pressionar Enter (caso não queira alterar o CPF, basta pressionar Enter): "
-                            novo_cpf = registro[:cpfAluno]
-                            registro[:cpfAluno] = gets.chomp.to_s
-                            altCPF = CPF.new(registro[:cpfAluno])
-                            registro[:cpfAluno] = registro[:cpfAluno].empty? ? novo_cpf : altCPF.formatted
-                        when 4
-                            print "Para editar o RG, basta digitá-lo e pressionar Enter (caso não queira alterar o RG, basta pressionar Enter): "
-                            novo_rg = registro[:rgAluno]
-                            registro[:rgAluno] = gets.chomp.to_s
-                            newRG = rgConvert(registro[:rgAluno])
-                            registro[:rgAluno] = registro[:rgAluno].empty? ? novo_rg : newRG
-                        when 5
-                            break
-                        end
-                    end
+                id = gets.chomp.to_i
+                puts "Qual campo deseja editar?\n
+                1. Nome
+                2. Idade
+                3. CPF
+                4. RG
+                5. Cancelar/Sair \n"
+                option3 = gets.chomp.to_i
+                case option3
+                when 1
+                    print "Para editar o nome, basta digitá-lo e pressionar Enter (caso não queira alterar o nome, basta pressionar Enter): "
+                    nome = gets.chomp.to_s
+                    novo_registro = nome.empty? ? nil : nome.capitalize
+                    novo_nome = novo_registro
+                    rw = DB.query("update alunos set name_aluno = '#{novo_nome}' where id_aluno = #{id}")
+                when 2
+                    print "Para editar a idade, basta digitá-lo e pressionar Enter (caso não queira alterar a idade, basta pressionar Enter): "
+                    idade = gets.chomp.to_i
+                    novo_registro = idade.to_s.empty? ? nil : idade
+                    nova_idade = novo_registro
+                    rw = DB.query("update alunos set age_aluno = #{nova_idade.to_i} where id_aluno = #{id}")
+                when 3 
+                    print "Para editar o CPF, basta digitá-lo e pressionar Enter (caso não queira alterar o CPF, basta pressionar Enter): "
+                    cpf = gets.chomp.to_i
+                    altCPF = CPF.new(cpf)
+                    novo_registro = cpf.to_s.empty? ? cpf : altCPF.formatted
+                    novo_cpf = novo_registro
+                    rw = DB.query("update alunos set cpf_aluno = '#{novo_cpf}' where id_aluno = #{id}")
+                when 4
+                    print "Para editar o RG, basta digitá-lo e pressionar Enter (caso não queira alterar o RG, basta pressionar Enter): "
+                    rg = gets.chomp.to_s
+                    altRG = CONVERSOR.to_rg(rg)
+                    novo_registro = rg.empty? ?  rg : altRG
+                    novo_rg = novo_registro
+                    rw = DB.query("update alunos set rg_aluno = '#{novo_rg}' where id_aluno = #{id}")
+                when 5
+                    break
                 end
             when 2
                 mostrar_professores
                 print "Escolha um contato da lista através do seu número de registro: "
-                option2 = gets.chomp.to_i
-                @lista_professores.each do |registro|
-                    if registro[:numRegistro] == option2
-                        puts "Qual campo deseja editar? \n
-                        1. Nome
-                        2. Idade
-                        3. Disciplina 
-                        4. CPF
-                        5. RG
-                        6. Sair/Cancelar\n"
-                        print "Opção: "
-                        option3 = gets.chomp.to_i
-                        case option3
-                        when 1
-                            print "Para editar o nome, basta digitá-lo e pressionar Enter (caso não queira alterar o nome, basta pressionar Enter): "
-                            novo_nome = registro[:nomeProfessor]
-                            registro[:nomeProfessor] = gets.chomp.to_s
-                            registro[:nomeProfessor] = registro[:nomeProfessor].empty? ? novo_nome : registro[:nomeProfessor]
-                        when 2
-                            print "Para editar a idade, basta digitá-lo e pressionar Enter (caso não queira alterar a idade, basta pressionar Enter): "
-                            nova_idade = registro[:idadeProfessor]
-                            registro[:idadeProfessor] = gets.chomp.to_i
-                            registro[:idadeProfessor] = registro[:idadeProfessor].empty? ? nova_idade : registro[:idadeProfessor]
-                        when 3
-                            print "Para editar o nome, basta digitá-lo e pressionar Enter (caso não queira alterar a disciplina, basta pressionar Enter): "
-                            nova_disciplina = registro[:disciplina]
-                            registro[:disciplina] = gets.chomp.to_s
-                            registro[:disciplina] = registro[:disciplina].empty? ? nova_disciplina : registro[:disciplina]
-                        when 4 
-                            print "Para editar o CPF, basta digitá-lo e pressionar Enter (caso não queira alterar o CPF, basta pressionar Enter): "
-                            novo_cpf = registro[:cpfProfessor]
-                            registro[:cpfProfessor] = gets.chomp.to_s
-                            altCPF = CPF.new(registro[:cpfProfessor])
-                            registro[:cpfProfessor] = registro[:cpfProfessor].empty? ? novo_cpf : altCPF.formatted
-                        when 5
-                            print "Para editar o RG, basta digitá-lo e pressionar Enter (caso não queira alterar o RG, basta pressionar Enter): "
-                            novo_rg = registro[:rgProfessor]
-                            registro[:rgProfessor] = gets.chomp.to_s
-                            newRG = rgConvert(registro[:rgProfessor])
-                            registro[:rgProfessor] = registro[:rgProfessor].empty? ? novo_rg : newRG
-                        when 6
-                            break
-                        end
-                    end
+                id = gets.chomp.to_i
+                puts "Qual campo deseja editar? \n
+                1. Nome
+                2. Idade
+                3. Disciplina 
+                4. CPF
+                5. RG
+                6. Sair/Cancelar\n"
+                print "Opção: "
+                option3 = gets.chomp.to_i
+                case option3
+                when 1
+                    print "Para editar o nome, basta digitá-lo e pressionar Enter (caso não queira alterar o nome, basta pressionar Enter): "
+                    nome = gets.chomp.to_s
+                    novo_registro = nome.empty? ? nil : nome.capitalize
+                    novo_nome = novo_registro
+                    rw = DB.query("update alunos set name_professor = '#{novo_nome}' where id_professor = #{id}")
+                when 2
+                    print "Para editar a idade, basta digitá-lo e pressionar Enter (caso não queira alterar a idade, basta pressionar Enter): "
+                    idade = gets.chomp.to_i
+                    novo_registro = idade.to_s.empty? ? nil : idade
+                    nova_idade = novo_registro
+                    rw = DB.query("update alunos set age_professor = #{nova_idade.to_i} where id_professor = #{id}")
+                when 3
+                    print "Para editar o nome, basta digitá-lo e pressionar Enter (caso não queira alterar a disciplina, basta pressionar Enter): "
+                    disciplina = gets.chomp.to_s
+                    novo_registro = disciplina.empty? ? nil : disciplina.capitalize
+                    nova_disciplina = novo_registro
+                    rw = DB.query("update alunos set discipline = '#{nova_disciplina}' where id_professor = #{id}")
+                when 4 
+                    print "Para editar o CPF, basta digitá-lo e pressionar Enter (caso não queira alterar o CPF, basta pressionar Enter): "
+                    cpf = gets.chomp.to_i
+                    altCPF = CPF.new(cpf)
+                    novo_registro = cpf.to_s.empty? ? cpf : altCPF.formatted
+                    novo_cpf = novo_registro
+                    rw = DB.query("update alunos set cpf_professor = '#{novo_cpf}' where id_professor = #{id}")
+                when 5
+                    print "Para editar o RG, basta digitá-lo e pressionar Enter (caso não queira alterar o RG, basta pressionar Enter): "
+                    rg = gets.chomp.to_s
+                    altRG = CONVERSOR.to_rg(rg)
+                    novo_registro = rg.empty? ?  rg : altRG
+                    novo_rg = novo_registro
+                    rw = DB.query("update alunos set rg_professor = '#{novo_rg}' where id_professor = #{id}")
+                when 6
+                    break
                 end
             when 3
                 break
@@ -272,12 +250,6 @@ module CAD
         end
     end
     def menu
-=begin
-        @lista_alunos = []
-        @lista_professores = []
-        @count1 = 0
-        @count2 = 0
-=end
         loop do
             puts "Bem vindo ao CAD de Alunos e Professores, escolha uma das seguintes opções:\n\n"
             puts "1. Cadastrar Aluno"
@@ -310,7 +282,7 @@ module CAD
             when 8
                 break
             else
-                puts "Opção inválida!"
+                puts "Opção inválida!\n"
             end
         end
     end
